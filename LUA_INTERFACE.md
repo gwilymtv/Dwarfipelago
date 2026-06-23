@@ -56,6 +56,7 @@ All keys are namespaced under `dwarfipelago/`.
 | `dwarfipelago/unlock/duke_charter` | `"1"` or absent | Lua | Set when Duke's Charter received; gates Duke Appointed check |
 | `dwarfipelago/unlock/monarch_invitation` | `"1"` or absent | Lua | Set when Monarch's Invitation received; gates Monarch Takes Residence check |
 | `dwarfipelago/unlock/military_training` | Integer string | Lua | How many Military Training items received (0–4); tiers 1–3 grant escalating steel gear, tier 4 spawns the target megabeast; used by slay_megabeast goal |
+| `dwarfipelago/unlock/deep_dig_permits` | Integer string | Lua | How many Deep Digging Permits received (0–5); caps how deep dwarves may dig below the surface (0→10 levels, 1→25, 2→50, 3→75, 4→100, 5→unlimited). The `on_job_initiated` hook cancels mining jobs below the cap (clears the tile's dig designation + removes the job). Gates the Delved-depth milestone checks in AP logic |
 | `dwarfipelago/unlock/artifact_weapon` | `"1"` or absent | Lua | Set when Artifact Weapon received; gates slay_megabeast and mountainhome goals |
 | `dwarfipelago/unlock/artifact_armor` | `"1"` or absent | Lua | Set when Artifact Armor received; gates population_boom prestige requirement |
 | `dwarfipelago/unlock/master_builders_codex` | `"1"` or absent | Lua | Set when Master Builder's Codex received; gates legendary_wealth, mountainhome, and population_boom goals |

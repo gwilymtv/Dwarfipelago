@@ -145,19 +145,38 @@ def set_rules(world: "DwarfFortressWorld") -> None:
     # These tiers are monotonic in play (you cannot reach a higher one without
     # passing the lower ones), so each later tier additionally requires the
     # previous tier to be reachable. Each tier keeps whatever base gate it already
-    # has (farming -> Farm Plot Blueprint; mining depth/tiles -> none), and the
-    # chain bottoms out at an always-reachable first tier, so no new unreachable
-    # locations are introduced.
+    # has (farming -> Farm Plot Blueprint; delved-depth -> Deep Digging Permit
+    # count, set below; excavator tiles -> none), and the chain bottoms out at an
+    # always-reachable first tier, so no new unreachable locations are introduced.
     def require_previous(names: list[str]) -> None:
         for i in range(1, len(names)):
             tier = multiworld.get_location(names[i], player)
             tier.access_rule = (lambda state, base=tier.access_rule, prev=names[i - 1]:
                                  base(state) and state.can_reach_location(prev, player))
 
-    require_previous([
-        "Delved 10 Levels Deep", "Delved 25 Levels Deep", "Delved 50 Levels Deep",
-        "Delved 75 Levels Deep", "Delved 100 Levels Deep",
-    ])
+    # The Delved-depth ladder is enforced in-game by the Deep Digging Permit: the
+    # Lua mod caps how deep dwarves may dig by the number of permits received
+    # (0 -> 10 levels, then 25/50/75/100 at 1-4, unlimited at 5). AP logic mirrors
+    # that cap one-for-one so the solver never assumes a depth the player cannot
+    # yet reach. Tier 1 (depth 10) is free; each deeper tier needs one more permit.
+    # require_previous still chains the tiers for ordering on top of the gate.
+    # NOTE: the cavern/magma/circus ladder below is also depth-based and is
+    # therefore implicitly capped in-game, but its AP logic is intentionally left
+    # unchanged for now (deferred) - that only shifts in-game timing, it does not
+    # change logical reachability, so generation stays valid.
+    DELVE_PERMIT_TIERS: list[tuple[str, int]] = [
+        ("Delved 10 Levels Deep",  0),
+        ("Delved 25 Levels Deep",  1),
+        ("Delved 50 Levels Deep",  2),
+        ("Delved 75 Levels Deep",  3),
+        ("Delved 100 Levels Deep", 4),
+    ]
+    for loc_name, permits in DELVE_PERMIT_TIERS:
+        if permits > 0:
+            loc = multiworld.get_location(loc_name, player)
+            loc.access_rule = (lambda state, n=permits:
+                               state.count("Deep Digging Permit", player) >= n)
+    require_previous([name for name, _ in DELVE_PERMIT_TIERS])
     require_previous([
         "Excavator I (100 tiles)", "Excavator II (500 tiles)",
         "Excavator III (2,000 tiles)", "Excavator IV (5,000 tiles)",

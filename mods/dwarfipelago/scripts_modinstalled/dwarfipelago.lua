@@ -22,7 +22,7 @@ local eventful   = require("plugins.eventful")
 local repeatUtil = require("repeat-util")
 
 local SCRIPT_NAME = "dwarfipelago"
-local SCRIPT_VERSION = "1.1.2"
+local SCRIPT_VERSION = "1.1.3"
 local POLL_TICKS  = 100  -- poll wealth/trade/goal checks every N ticks
 
 local function fmt_energy(j)
@@ -1455,6 +1455,56 @@ function unlock_blueprint(blueprint_name)
     print(("[Dwarfipelago] Blueprint unlocked: %s"):format(blueprint_name))
 end
 
+-- ── Deep Digging Permit: depth-cap enforcement ─────────────────────────────
+-- Mirrors the blueprint gate above, but for mining instead of building. The
+-- number of Deep Digging Permits received (dwarfipelago/unlock/deep_dig_permits,
+-- written by items.lua) caps how many z-levels below the embark surface dwarves
+-- may dig. Index = permits held, value = max depth; 5+ permits removes the cap.
+local DEEP_DIG_CAPS = { [0] = 10, [1] = 25, [2] = 50, [3] = 75, [4] = 100 }
+-- Throttle the "cannot dig deeper" announcement (frame_counter ticks) so a large
+-- over-deep designation does not spam one message per blocked tile.
+local last_dig_block_announce = -1000
+
+-- Cancel a single mining job whose tile is below the permitted depth. A dig is a
+-- tile designation, not a placed object, so (unlike a building) cancelling the
+-- job alone leaves the designation and a dwarf re-claims it next tick. We clear
+-- the tile's dig flag too, then remove the job deferred (removing it inline mid
+-- engine-update crashes DF, same reason the blueprint gate defers deconstruct).
+local function check_dig_depth_gate(job)
+    if not MINING_JOBS[job.job_type] then return end
+
+    local surface = tonumber(dfhack.persistent.getWorldDataString("dwarfipelago/mining/surface_z"))
+    if not surface then return end  -- surface reference not captured yet: allow
+
+    local permits = tonumber(dfhack.persistent.getWorldDataString("dwarfipelago/unlock/deep_dig_permits")) or 0
+    local cap = DEEP_DIG_CAPS[permits]
+    if not cap then return end  -- 5+ permits: unlimited depth
+
+    local ok, jz = pcall(function() return job.pos.z end)
+    if not ok or not jz then return end
+    if (surface - jz) <= cap then return end  -- within the permitted depth
+
+    -- Clear the tile's dig designation so dwarves stop re-queuing it.
+    local okb, blk = pcall(dfhack.maps.getTileBlock, job.pos.x, job.pos.y, job.pos.z)
+    if okb and blk then
+        pcall(function()
+            blk.designation[job.pos.x % 16][job.pos.y % 16].dig = df.tile_dig_designation.No
+        end)
+    end
+    -- Remove the in-flight job on the next tick.
+    dfhack.timeout(1, "ticks", function()
+        pcall(function() dfhack.job.removeJob(job) end)
+    end)
+
+    local now = df.global.world.frame_counter or 0
+    if now - last_dig_block_announce > 100 then
+        last_dig_block_announce = now
+        dfhack.gui.showAnnouncement(
+            ("[AP] Cannot dig past %d levels deep: another Deep Digging Permit is required!"):format(cap),
+            COLOR_YELLOW, true)
+    end
+end
+
 -- Hook: remove designations for locked workshops, furnaces, and farm plots.
 -- Called via eventful.onBuildingCreated - fires the moment a player places a
 -- building designation, before any materials are claimed or jobs are queued.
@@ -1464,6 +1514,7 @@ local function on_job_initiated(job)
 
     check_treasury_job_gate(job)
     check_craftitem_gate(job)
+    check_dig_depth_gate(job)
 
     -- Only care about construction jobs.
     if job.job_type ~= df.job_type.ConstructBuilding then return end

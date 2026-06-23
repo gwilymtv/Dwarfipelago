@@ -1359,6 +1359,22 @@ local function recv_military_training()
     end
 end
 
+-- Deep Digging Permit: each permit raises the depth cap enforced by the dig gate
+-- in dwarfipelago.lua (see check_dig_depth_gate). The count is stored under
+-- dwarfipelago/unlock/deep_dig_permits and read by that hook every dig job.
+local DEEP_DIG_CAP_AT = { [1] = 25, [2] = 50, [3] = 75, [4] = 100 }
+local function recv_deep_dig_permit()
+    local key = "dwarfipelago/unlock/deep_dig_permits"
+    local n = (tonumber(dfhack.persistent.getWorldDataString(key)) or 0) + 1
+    dfhack.persistent.saveWorldDataString(key, tostring(n))
+    if n >= 5 then
+        announce("Deep Digging Permit received! Your miners may now dig to any depth. (5/5)")
+    else
+        announce(("Deep Digging Permit received! Miners may now dig down to %d levels deep. (%d/5)")
+            :format(DEEP_DIG_CAP_AT[n] or 10, n))
+    end
+end
+
 -- ── Progression unlock definitions ───────────────────────────────────────────
 -- Single source of truth for all progression unlocks.
 -- The panel reads this to build its Unlocks tab automatically.
@@ -1371,6 +1387,7 @@ M.UNLOCK_DEFS = {
     { key = "wealth_coffers",        label = "Merchant's Coffers",     max = 5 },
     { key = "immigration_waves",     label = "Immigration Waves",      max = 5 },
     { key = "military_training",     label = "Military Training",      max = 4 },
+    { key = "deep_dig_permits",      label = "Deep Digging Permits",   max = 5 },
     { key = "RotGK",                 label = "Remains of the Great King"},
     { key = "baron_charter",         label = "Baron's Charter" },
     { key = "count_charter",         label = "Count's Charter" },
@@ -1457,6 +1474,7 @@ M.handlers = {
     ["Duke's Charter"]       = recv_dukes_charter,
     ["Monarch's Invitation"] = recv_monarchs_invitation,
     ["Military Training"]    = recv_military_training,
+    ["Deep Digging Permit"]  = recv_deep_dig_permit,
 }
 
 -- ── Blueprint items ───────────────────────────────────────────────────────────

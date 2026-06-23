@@ -84,6 +84,12 @@ PROGRESSION_LOCK_ITEMS: list[ItemData] = [
     ItemData("Military Training",           BASE_ID + 636, ItemClassification.progression, quantity=4),
     # Remains of the Great King goal
     ItemData("Remains of the Great King",   BASE_ID + 637, ItemClassification.progression, quantity=5),
+    # Deep Digging Permit: each of the 5 permits raises the in-game digging depth
+    # cap enforced by the Lua mod (0 -> 10 levels, then 25/50/75/100 at 1-4,
+    # unlimited at 5) and gates the Delved-depth milestone ladder in logic. Not
+    # tied to any single goal, so (like Immigration Wave) it is never stripped in
+    # create_items and stays in the pool for all goals.
+    ItemData("Deep Digging Permit",         BASE_ID + 638, ItemClassification.progression, quantity=5),
 ]
 
 USEFUL_ITEMS: list[ItemData] = [
